@@ -45,16 +45,15 @@ const Watch = () => {
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-6">
+      <div className="px-0 sm:px-4 py-0 sm:py-6">
         <Link
           to={isMovie ? '/movies' : '/live'}
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors mb-4"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors mb-4 ml-4"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to {isMovie ? 'Movies' : 'Live TV'}
         </Link>
-        <h1 className="text-2xl font-display font-bold text-foreground mb-4">{decodeURIComponent(name)}</h1>
-        <div className="max-w-5xl">
+        <div className="w-full max-w-5xl mx-auto">
           <VideoPlayer url={decodeURIComponent(url)} title={decodeURIComponent(name)} />
         </div>
 

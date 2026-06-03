@@ -1,4 +1,4 @@
--- Cloudflare D1 Database Schema for AHCL
+-- Cloudflare D1 Database Schema for LiveZone TV
 -- Run: wrangler d1 execute ahcl-db --file=./worker/schema.sql
 
 CREATE TABLE IF NOT EXISTS admin (
@@ -34,3 +34,12 @@ INSERT INTO playlists (url, type, sort_order) VALUES
   ('https://raw.githubusercontent.com/bugsfreeweb/LiveTVCollector/refs/heads/main/Movies/Worldwide/Movies.m3u', 'movie', 1),
   ('https://raw.githubusercontent.com/bugsfreeweb/LiveTVCollector/refs/heads/main/Movies/WorldCollection/Movies.m3u', 'movie', 2),
   ('https://raw.githubusercontent.com/bugsfreeweb/LiveTVCollector/refs/heads/main/Movies/Bollywood/Movies.m3u', 'movie', 3);
+
+-- Contact messages table
+CREATE TABLE IF NOT EXISTS contact_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  message TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);

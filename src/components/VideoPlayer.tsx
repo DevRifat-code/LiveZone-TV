@@ -1,13 +1,24 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Hls from 'hls.js';
-import { Maximize2, Minimize2, Volume2, VolumeX, Play, Pause, RotateCcw, Settings, Loader2, PictureInPicture2 } from 'lucide-react';
+import { Maximize2, Minimize2, Volume2, VolumeX, Play, Pause, RotateCcw, Loader2, PictureInPicture2, Signal } from 'lucide-react';
 
 interface VideoPlayerProps {
   url: string;
   title?: string;
 }
 
-// Extract Google Drive file ID from various URL formats
+function getStreamUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.origin !== window.location.origin) {
+      const proxy = new URL('/api/cors-proxy', window.location.origin);
+      proxy.searchParams.set('url', url);
+      return proxy.toString();
+    }
+  } catch {}
+  return url;
+}
+
 function getGoogleDriveId(url: string): string | null {
   const patterns = [
     /drive\.google\.com\/file\/d\/([^/]+)/,
@@ -25,6 +36,15 @@ function buildDrivePlyrUrl(fileId: string): string {
   const payload = JSON.stringify({ id: [fileId] });
   const encoded = btoa(payload);
   return `https://sh20raj.github.io/DrivePlyr/fluid.html?id=${encoded}`;
+}
+
+function formatTime(t: number) {
+  if (!isFinite(t) || t < 0) return '--:--';
+  const h = Math.floor(t / 3600);
+  const m = Math.floor((t % 3600) / 60);
+  const s = Math.floor(t % 60);
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, '0')}`;
 }
 
 const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
@@ -57,7 +77,6 @@ const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
     }
   }, []);
 
-  // Try native playback as fallback
   const tryNativePlayback = useCallback((video: HTMLVideoElement, src: string) => {
     destroyHls();
     setPlaybackMode('native');
@@ -68,7 +87,6 @@ const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
     video.play().catch(() => {});
   }, [destroyHls]);
 
-  // Try HLS playback
   const tryHlsPlayback = useCallback((video: HTMLVideoElement, src: string) => {
     destroyHls();
     setPlaybackMode('hls');
@@ -96,19 +114,16 @@ const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
 
       hls.on(Hls.Events.ERROR, (_, data) => {
         if (data.fatal) {
-          // HLS failed — fall back to native
           console.warn('HLS fatal error, falling back to native playback');
           tryNativePlayback(video, src);
         }
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Safari native HLS
       video.src = src;
       video.addEventListener('loadedmetadata', () => {
         video.play().catch(() => {});
       }, { once: true });
     } else {
-      // No HLS support, try native
       tryNativePlayback(video, src);
     }
   }, [destroyHls, tryNativePlayback]);
@@ -124,11 +139,12 @@ const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
     setIsPlaying(false);
     setIsBuffering(true);
 
-    // Decide strategy: if URL looks like HLS, try HLS first; otherwise try native first
-    if (isHlsUrl(url)) {
-      tryHlsPlayback(video, url);
+    const streamUrl = getStreamUrl(url);
+
+    if (isHlsUrl(streamUrl)) {
+      tryHlsPlayback(video, streamUrl);
     } else {
-      tryNativePlayback(video, url);
+      tryNativePlayback(video, streamUrl);
     }
 
     return () => {
@@ -136,7 +152,6 @@ const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
     };
   }, [url, tryHlsPlayback, tryNativePlayback, destroyHls]);
 
-  // Video event listeners
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -158,12 +173,10 @@ const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
       }
     };
     const onError = () => {
-      // If native playback fails and we haven't tried HLS, try HLS
       if (playbackMode === 'native' && isHlsUrl(url)) {
-        tryHlsPlayback(video, url);
+        tryHlsPlayback(video, getStreamUrl(url));
         return;
       }
-      // If both fail
       if (playbackMode === 'native') {
         setError('Failed to load stream. The channel may be offline or the format is unsupported.');
       }
@@ -197,20 +210,14 @@ const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
   const togglePlay = () => {
     const video = videoRef.current;
     if (!video) return;
-    if (video.paused) {
-      video.play().catch(() => {});
-    } else {
-      video.pause();
-    }
+    if (video.paused) video.play().catch(() => {});
+    else video.pause();
   };
 
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen();
-    } else {
-      document.exitFullscreen();
-    }
+    if (!document.fullscreenElement) containerRef.current.requestFullscreen();
+    else document.exitFullscreen();
   };
 
   const toggleMute = () => {
@@ -241,23 +248,11 @@ const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
     const video = videoRef.current;
     if (!video) return;
     setError('');
-    if (isHlsUrl(url)) {
-      tryHlsPlayback(video, url);
-    } else {
-      tryNativePlayback(video, url);
-    }
+    const streamUrl = getStreamUrl(url);
+    if (isHlsUrl(streamUrl)) tryHlsPlayback(video, streamUrl);
+    else tryNativePlayback(video, streamUrl);
   };
 
-  const formatTime = (t: number) => {
-    if (!isFinite(t) || t < 0) return '--:--';
-    const h = Math.floor(t / 3600);
-    const m = Math.floor((t % 3600) / 60);
-    const s = Math.floor(t % 60);
-    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
-
-  // Auto-hide controls
   const resetHideTimer = useCallback(() => {
     setShowControls(true);
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
@@ -272,7 +267,6 @@ const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
     return () => document.removeEventListener('fullscreenchange', handler);
   }, []);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -297,7 +291,6 @@ const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
 
   const controlsVisible = showControls || !isPlaying || isBuffering;
 
-  // Google Drive: render iframe instead of video player
   const driveId = getGoogleDriveId(url);
   if (driveId) {
     const embedUrl = buildDrivePlyrUrl(driveId);
@@ -322,33 +315,54 @@ const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
   return (
     <div
       ref={containerRef}
-      className="relative w-full bg-black rounded-lg overflow-hidden cursor-pointer select-none"
+      className="relative w-full bg-black rounded-none sm:rounded-lg overflow-hidden cursor-pointer select-none group"
       style={{ aspectRatio: '16/9' }}
       onMouseMove={resetHideTimer}
       onMouseLeave={() => isPlaying && setShowControls(false)}
     >
-      {error ? (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/90">
+      {/* Gradient edges */}
+      <div className={`absolute inset-0 z-10 pointer-events-none transition-opacity duration-500 ${controlsVisible ? 'opacity-100' : 'opacity-0'}`}>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent" />
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/80 backdrop-blur-sm">
           <div className="text-center p-6">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-destructive/20 flex items-center justify-center">
-              <span className="text-2xl">📡</span>
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-destructive/30 to-destructive/10 flex items-center justify-center border border-destructive/20">
+              <Signal className="w-7 h-7 text-destructive" />
             </div>
-            <p className="text-white font-medium mb-4">{error}</p>
+            <p className="text-white/90 font-medium mb-5 text-sm max-w-xs mx-auto leading-relaxed">{error}</p>
             <button
               onClick={retry}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-all shadow-lg shadow-primary/25"
             >
-              <RotateCcw className="w-4 h-4" />
-              Retry
+              <RotateCcw className="w-3.5 h-3.5" />
+              Try Again
             </button>
           </div>
         </div>
-      ) : null}
+      )}
 
       {/* Buffering spinner */}
       {isBuffering && !error && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-          <Loader2 className="w-10 h-10 text-white animate-spin" />
+        <div className="absolute inset-0 z-20 flex items-center justify-center">
+          <div className="relative">
+            <div className="w-12 h-12 rounded-full border-2 border-white/10 border-t-primary animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-2 h-2 rounded-full bg-primary/60 animate-pulse" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Center play button (when paused) */}
+      {!isPlaying && !isBuffering && !error && (
+        <div className="absolute inset-0 z-15 flex items-center justify-center" onClick={togglePlay}>
+          <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-primary/90 backdrop-blur-sm flex items-center justify-center shadow-2xl shadow-primary/30 transition-transform hover:scale-105 active:scale-95">
+            <Play className="w-7 h-7 md:w-8 md:h-8 text-white ml-1" />
+          </div>
         </div>
       )}
 
@@ -363,35 +377,37 @@ const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
 
       {/* Top bar */}
       {title && (
-        <div className={`absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 to-transparent z-10 transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-          <p className="text-white font-semibold text-sm truncate">{title}</p>
+        <div className={`absolute top-0 left-0 right-0 p-4 md:p-5 z-20 transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-green-500 shadow-lg shadow-green-500/50 animate-pulse" />
+            <h2 className="text-white font-semibold text-sm md:text-base truncate drop-shadow-lg">{title}</h2>
+          </div>
         </div>
       )}
 
       {/* Bottom controls */}
-      <div className={`absolute bottom-0 left-0 right-0 z-10 transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+      <div className={`absolute bottom-0 left-0 right-0 z-20 transition-all duration-300 ${controlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'}`}>
         {/* Progress bar */}
-        {duration > 0 && (
-          <div
-            ref={progressRef}
-            className="w-full h-1.5 bg-white/20 cursor-pointer group/progress hover:h-2.5 transition-all mx-0"
-            onClick={handleSeek}
-          >
-            <div className="h-full bg-primary rounded-r-full relative" style={{ width: `${progress}%` }}>
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover/progress:opacity-100 transition-opacity shadow" />
-            </div>
+        <div
+          ref={progressRef}
+          className="relative w-full h-1.5 bg-white/10 cursor-pointer group/progress hover:h-2 transition-all duration-150"
+          onClick={handleSeek}
+        >
+          <div className="h-full bg-gradient-to-r from-primary to-purple-400 relative" style={{ width: `${progress}%` }}>
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white rounded-full opacity-0 group-hover/progress:opacity-100 transition-all duration-200 shadow-lg shadow-primary/40 scale-0 group-hover/progress:scale-100" />
           </div>
-        )}
+        </div>
 
-        <div className="flex items-center justify-between gap-2 px-3 py-2 bg-gradient-to-t from-black/70 to-transparent">
-          <div className="flex items-center gap-2">
-            <button onClick={togglePlay} className="p-1.5 rounded-full hover:bg-white/20 transition-colors text-white">
+        {/* Control bar */}
+        <div className="flex items-center justify-between gap-2 px-3 md:px-5 py-2.5 md:py-3">
+          <div className="flex items-center gap-1.5 md:gap-2">
+            <button onClick={togglePlay} className="p-2 rounded-xl hover:bg-white/10 transition-colors text-white/90 hover:text-white">
               {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
             </button>
 
-            <div className="flex items-center gap-1.5 group/vol">
-              <button onClick={toggleMute} className="p-1.5 rounded-full hover:bg-white/20 transition-colors text-white">
-                {isMuted || volume === 0 ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+            <div className="flex items-center gap-1 group/vol">
+              <button onClick={toggleMute} className="p-2 rounded-xl hover:bg-white/10 transition-colors text-white/70 hover:text-white">
+                {isMuted || volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
               </button>
               <input
                 type="range"
@@ -400,12 +416,12 @@ const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
                 step="0.05"
                 value={isMuted ? 0 : volume}
                 onChange={handleVolumeChange}
-                className="w-0 group-hover/vol:w-20 transition-all duration-200 accent-primary h-1 cursor-pointer"
+                className="w-0 group-hover/vol:w-16 md:group-hover/vol:w-20 transition-all duration-200 accent-primary h-1 cursor-pointer"
               />
             </div>
 
             {duration > 0 && (
-              <span className="text-white/80 text-xs font-mono ml-1">
+              <span className="text-white/60 text-xs font-mono ml-1 hidden sm:block tabular-nums">
                 {formatTime(currentTime)} / {formatTime(duration)}
               </span>
             )}
@@ -415,20 +431,17 @@ const VideoPlayer = ({ url, title }: VideoPlayerProps) => {
             <button
               onClick={() => {
                 if (videoRef.current && document.pictureInPictureEnabled) {
-                  if (document.pictureInPictureElement) {
-                    document.exitPictureInPicture().catch(() => {});
-                  } else {
-                    videoRef.current.requestPictureInPicture().catch(() => {});
-                  }
+                  if (document.pictureInPictureElement) document.exitPictureInPicture().catch(() => {});
+                  else videoRef.current.requestPictureInPicture().catch(() => {});
                 }
               }}
-              className="p-1.5 rounded-full hover:bg-white/20 transition-colors text-white"
+              className="p-2 rounded-xl hover:bg-white/10 transition-colors text-white/70 hover:text-white hidden sm:block"
               title="Picture in Picture"
             >
-              <PictureInPicture2 className="w-5 h-5" />
+              <PictureInPicture2 className="w-4 h-4" />
             </button>
-            <button onClick={toggleFullscreen} className="p-1.5 rounded-full hover:bg-white/20 transition-colors text-white">
-              {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+            <button onClick={toggleFullscreen} className="p-2 rounded-xl hover:bg-white/10 transition-colors text-white/70 hover:text-white">
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </button>
           </div>
         </div>

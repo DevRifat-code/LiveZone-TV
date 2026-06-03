@@ -8,6 +8,12 @@ export interface Channel {
   tvgName?: string;
 }
 
+export function parsePlaylistRef(raw: string): { url: string; category?: string } {
+  const hashIndex = raw.indexOf('#');
+  if (hashIndex === -1) return { url: raw };
+  return { url: raw.slice(0, hashIndex), category: decodeURIComponent(raw.slice(hashIndex + 1)) };
+}
+
 export function parseM3U(content: string): Channel[] {
   const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
   const channels: Channel[] = [];
@@ -49,16 +55,24 @@ export function parseM3U(content: string): Channel[] {
   return channels;
 }
 
-export async function fetchAndParsePlaylist(url: string): Promise<Channel[]> {
+export async function fetchAndParsePlaylist(rawUrl: string): Promise<Channel[]> {
+  const { url, category } = parsePlaylistRef(rawUrl);
   try {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to fetch: ${url}`);
     const text = await response.text();
-    return parseM3U(text);
+    const channels = parseM3U(text);
+    if (category) return channels.filter(ch => ch.group === category);
+    return channels;
   } catch (error) {
     console.error(`Error fetching playlist ${url}:`, error);
     return [];
   }
+}
+
+export function extractCategories(channels: Channel[]): string[] {
+  const cats = new Set(channels.map(ch => ch.group).filter(Boolean));
+  return Array.from(cats).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 }
 
 export async function fetchAllPlaylists(urls: string[]): Promise<Channel[]> {

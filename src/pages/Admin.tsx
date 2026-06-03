@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { verifyAdmin, updateAdminPassword, getTVPlaylists, setTVPlaylists, getMoviePlaylists, setMoviePlaylists, getNamedPlaylists, setNamedPlaylists, clearAuthToken, NamedPlaylist } from '@/lib/store';
-import { Lock, LogOut, Plus, Trash2, Save, Tv, Film, KeyRound, Loader2, ShieldCheck, Eye, EyeOff, CheckCircle2, XCircle, Heart, LayoutGrid } from 'lucide-react';
+import { fetchAndParsePlaylist, extractCategories } from '@/lib/m3u-parser';
+import { Lock, LogOut, Plus, Trash2, Save, Tv, Film, KeyRound, Loader2, ShieldCheck, Eye, EyeOff, CheckCircle2, XCircle, Heart, LayoutGrid, List } from 'lucide-react';
 
 const SESSION_KEY = 'ahcl_admin_session';
 const SESSION_TTL = 8 * 60 * 60 * 1000;
@@ -122,6 +123,8 @@ const Admin = () => {
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [loggingIn, setLoggingIn] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [categoryPreview, setCategoryPreview] = useState<Record<string, { name: string; count: number }[]>>({});
+  const [fetchingUrl, setFetchingUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const user = loadSession();
@@ -198,6 +201,29 @@ const Admin = () => {
     else setError('Failed to update password.');
   };
 
+  const handleFetchCategories = async (url: string) => {
+    if (!url.trim()) return;
+    setFetchingUrl(url.trim());
+    const channels = await fetchAndParsePlaylist(url.trim());
+    const groups = extractCategories(channels);
+    const counted = groups.map(name => ({
+      name,
+      count: channels.filter(ch => ch.group === name).length,
+    }));
+    setCategoryPreview(prev => ({ ...prev, [url.trim()]: counted }));
+    setFetchingUrl(null);
+  };
+
+  const handleAddCategory = (baseUrl: string, category: string) => {
+    const entry = `${baseUrl}#${encodeURIComponent(category)}`;
+    setUrlList(prev => [...prev, entry]);
+    setCategoryPreview(prev => {
+      const next = { ...prev };
+      delete next[baseUrl];
+      return next;
+    });
+  };
+
   // ── Loading ──────────────────────────────────────────────────────────────
   if (sessionLoading) return (
     <div style={{ minHeight: '100vh', background: '#0a0a0f', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -227,7 +253,7 @@ const Admin = () => {
             <ShieldCheck style={{ width: 28, height: 28, color: 'white' }} />
           </div>
           <h1 className="adm-display" style={{ color: 'white', fontSize: 22, margin: 0 }}>Admin Portal</h1>
-          <p style={{ color: 'rgba(255,255,255,0.38)', fontSize: 13, marginTop: 4 }}>AHCL Control Panel</p>
+          <p style={{ color: 'rgba(255,255,255,0.38)', fontSize: 13, marginTop: 4 }}>LiveZone TV Control Panel</p>
         </div>
 
         <div className="adm-glass" style={{ borderRadius: 20, padding: '28px 24px' }}>
@@ -403,29 +429,78 @@ const Admin = () => {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                 {urlList.map((url, i) => (
-                  <div key={i} className="adm-slide" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span className="adm-row-num" style={{ color: 'rgba(255,255,255,0.2)', fontSize: 11, fontFamily: 'monospace', width: 22, textAlign: 'center', flexShrink: 0 }}>
-                      {String(i + 1).padStart(2, '0')}
-                    </span>
-                    <input
-                      value={url}
-                      onChange={(e) => { const u = [...urlList]; u[i] = e.target.value; setUrlList(u); }}
-                      placeholder={urlPlaceholder}
-                      className="adm-input"
-                      style={{ padding: '10px 13px', borderRadius: 10, fontSize: 13, fontFamily: 'monospace', flex: 1, minWidth: 0 }}
-                    />
-                    <button
-                      onClick={() => setUrlList(urlList.filter((_, j) => j !== i))}
-                      style={{
-                        padding: 8, borderRadius: 8, border: 'none', background: 'none',
-                        cursor: 'pointer', color: 'rgba(255,255,255,0.22)',
-                        display: 'flex', alignItems: 'center', flexShrink: 0, transition: 'all 0.15s',
-                      }}
-                      onMouseEnter={e => { const el = e.currentTarget; el.style.color = '#f87171'; el.style.background = 'rgba(239,68,68,0.1)'; }}
-                      onMouseLeave={e => { const el = e.currentTarget; el.style.color = 'rgba(255,255,255,0.22)'; el.style.background = 'none'; }}
-                    >
-                      <Trash2 style={{ width: 14, height: 14 }} />
-                    </button>
+                  <div key={i}>
+                    <div className="adm-slide" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: categoryPreview[url] ? 8 : 0 }}>
+                      <span className="adm-row-num" style={{ color: 'rgba(255,255,255,0.2)', fontSize: 11, fontFamily: 'monospace', width: 22, textAlign: 'center', flexShrink: 0 }}>
+                        {String(i + 1).padStart(2, '0')}
+                      </span>
+                      <input
+                        value={url}
+                        onChange={(e) => { const u = [...urlList]; u[i] = e.target.value; setUrlList(u); }}
+                        placeholder={urlPlaceholder}
+                        className="adm-input"
+                        style={{ padding: '10px 13px', borderRadius: 10, fontSize: 13, fontFamily: 'monospace', flex: 1, minWidth: 0 }}
+                      />
+                      <button
+                        onClick={() => handleFetchCategories(url)}
+                        disabled={fetchingUrl === url.trim()}
+                        style={{
+                          padding: 8, borderRadius: 8, border: 'none', background: 'none',
+                          cursor: 'pointer', color: 'rgba(255,255,255,0.3)',
+                          display: 'flex', alignItems: 'center', flexShrink: 0, transition: 'all 0.15s',
+                        }}
+                        onMouseEnter={e => { const el = e.currentTarget; el.style.color = '#6366f1'; el.style.background = 'rgba(99,102,241,0.1)'; }}
+                        onMouseLeave={e => { const el = e.currentTarget; el.style.color = 'rgba(255,255,255,0.3)'; el.style.background = 'none'; }}
+                      >
+                        {fetchingUrl === url.trim() ? <Loader2 style={{ width: 14, height: 14 }} className="adm-spin" /> : <List style={{ width: 14, height: 14 }} />}
+                      </button>
+                      <button
+                        onClick={() => setUrlList(urlList.filter((_, j) => j !== i))}
+                        style={{
+                          padding: 8, borderRadius: 8, border: 'none', background: 'none',
+                          cursor: 'pointer', color: 'rgba(255,255,255,0.22)',
+                          display: 'flex', alignItems: 'center', flexShrink: 0, transition: 'all 0.15s',
+                        }}
+                        onMouseEnter={e => { const el = e.currentTarget; el.style.color = '#f87171'; el.style.background = 'rgba(239,68,68,0.1)'; }}
+                        onMouseLeave={e => { const el = e.currentTarget; el.style.color = 'rgba(255,255,255,0.22)'; el.style.background = 'none'; }}
+                      >
+                        <Trash2 style={{ width: 14, height: 14 }} />
+                      </button>
+                    </div>
+                    {categoryPreview[url] && (
+                      <div className="adm-slide" style={{
+                        marginLeft: 30, padding: '10px 12px', borderRadius: 10,
+                        background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                          <Tv style={{ width: 12, height: 12, color: 'rgba(255,255,255,0.35)' }} />
+                          <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, fontWeight: 500 }}>
+                            Categories ({categoryPreview[url].length})
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {categoryPreview[url].map(cat => (
+                            <button
+                              key={cat.name}
+                              onClick={() => handleAddCategory(url, cat.name)}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 5,
+                                padding: '4px 9px', borderRadius: 7,
+                                border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)',
+                                color: 'rgba(255,255,255,0.55)', fontSize: 11, cursor: 'pointer',
+                                transition: 'all 0.15s',
+                              }}
+                              onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = 'rgba(99,102,241,0.4)'; el.style.color = '#a5b4fc'; el.style.background = 'rgba(99,102,241,0.1)'; }}
+                              onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = 'rgba(255,255,255,0.08)'; el.style.color = 'rgba(255,255,255,0.55)'; el.style.background = 'rgba(255,255,255,0.03)'; }}
+                            >
+                              <Plus style={{ width: 10, height: 10 }} />
+                              {cat.name}
+                              <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10 }}>{cat.count}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

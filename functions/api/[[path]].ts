@@ -150,5 +150,28 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   }
                  }
 
+  // ================= CONTACT =================
+
+  if (path === "/api/contact" && request.method === "POST") {
+    try {
+      const body = await request.json<{ name: string; email: string; message: string }>();
+
+      if (!body.name?.trim() || !body.email?.trim() || !body.message?.trim()) {
+        return json({ error: "All fields are required" }, 400);
+      }
+
+      await env.DB.prepare(
+        "INSERT INTO contact_messages (name, email, message) VALUES (?, ?, ?)"
+      ).bind(body.name.trim(), body.email.trim(), body.message.trim()).run();
+
+      console.log(`Contact message from ${body.name} <${body.email}>`);
+
+      return json({ success: true, message: "Message received. We'll get back to you soon." });
+    } catch (err: any) {
+      console.error("Error in contact POST:", err);
+      return json({ error: err.message || "Failed to save message" }, 500);
+    }
+  }
+
   return json({ error: "Not found" }, 404);
 };

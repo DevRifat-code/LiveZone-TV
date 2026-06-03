@@ -1,10 +1,10 @@
-<h1 align="center">AHCL | Live TV Streaming</h1>
+<h1 align="center">LiveZone TV | Live TV Streaming</h1>
 
 <div align="center">
 
-[![LIVE TV Streaming](https://img.shields.io/badge/Status-Live-brightgreen)](https://mehedi.fun/) [![Version](https://img.shields.io/badge/Version-1.0.0-green)](https://mehedi.fun/) [![License](https://img.shields.io/badge/License-MIT-yellow)](https://mehedi.fun/) [![Live Demo](https://img.shields.io/badge/Live%20Demo-https://ahcl.pages.dev/-blue)](https://ahcl.pages.dev/) 
+[![LIVE TV Streaming](https://img.shields.io/badge/Status-Live-brightgreen)](https://livetv24.pages.dev/) [![Version](https://img.shields.io/badge/Version-1.0.0-green)](https://livetv24.pages.dev/) [![License](https://img.shields.io/badge/License-MIT-yellow)](https://livetv24.pages.dev/) [![Live Demo](https://img.shields.io/badge/Live%20Demo-https://livetv24.pages.dev/-blue)](https://livetv24.pages.dev/) 
 
-*AHCL is a fast, secure, and scalable Live TV Streaming Platform application built on React (Vite) and deployed through Cloudflare Pages & Workers. It uses Cloudflare D1 as its database layer and includes a complete admin dashboard for link and system management.*
+*LiveZone TV is a fast, secure, and scalable Live TV Streaming Platform application built on React (Vite) and deployed through Cloudflare Pages & Workers. It uses Cloudflare D1 as its database layer and includes a complete admin dashboard for link and system management.*
 
 *One of the biggest advantages of this project is that it runs entirely on Cloudflare’s free tier. <font color="green">Both Cloudflare Pages and D1 Database offer generous lifetime free usage</font>, making this solution extremely cost-effective for personal projects, startups, and production-ready deployments without any hosting expenses.*
 
@@ -17,7 +17,7 @@
 
 Experience the full functionality of the **Live TV Streaming Platform** with all features available online!
 
-**🚀 Web**: [https://ahcl.pages.dev/](https://ahcl.pages.dev/)
+**🚀 Web**: [https://livetv24.pages.dev/](https://livetv24.pages.dev/)
 
 
 ---
@@ -112,7 +112,7 @@ After the project is successfully deployed, follow these steps:
    **Storage & Databases → D1**
 2. Click **Create Database**
 3. Configure as follows:
-   - **Database Name:** `ahcl-db`
+   - **Database Name:** `livezone-db`
    - **Location:** Default / automatic location
 4. Now Copy your **Database UUID** and paste it into Github Repo -> `/wrangler.jsonc` file in the `"database_id"` field.
 
@@ -140,7 +140,7 @@ After the project is successfully deployed, follow these steps:
 5. Choose **D1 Database**
 6. Configure:
    - **Variable Name:** `DB`
-   - **Database:** `ahcl-db`
+   - **Database:** `livezone-db`
 7. Save changes.
 
 ---
