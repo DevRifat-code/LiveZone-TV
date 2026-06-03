@@ -62,24 +62,29 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   }
 
   if (path === "/api/admin/login" && request.method === "POST") {
-    const body = await request.json<{ username: string; password: string }>();
+    try {
+      const body = await request.json<{ username: string; password: string }>();
 
-    const row = await env.DB.prepare(
-      "SELECT * FROM admin WHERE id = 1"
-    ).first<{ username: string; password: string }>();
+      // Hardcoded admin check (works even if DB is unavailable)
+      if (body.username === 'admin' && body.password === '123456') {
+        const token = btoa('admin:123456');
+        return json({ success: true, token });
+      }
 
-    if (row && row.username === body.username && row.password === body.password) {
-      const token = btoa(`${body.username}:${body.password}`);
-      return json({ success: true, token });
+      const row = await env.DB.prepare(
+        "SELECT * FROM admin WHERE id = 1"
+      ).first<{ username: string; password: string }>();
+
+      if (row && row.username === body.username && row.password === body.password) {
+        const token = btoa(`${body.username}:${body.password}`);
+        return json({ success: true, token });
+      }
+
+      return json({ error: "Invalid credentials" }, 401);
+    } catch (e: any) {
+      console.error("Login error:", e.message);
+      return json({ error: "Invalid credentials" }, 401);
     }
-
-    // Fallback to hardcoded credentials if DB check fails
-    if (body.username === 'admin' && body.password === '123456') {
-      const token = btoa('admin:123456');
-      return json({ success: true, token });
-    }
-
-    return json({ error: "Invalid credentials" }, 401);
   }
 
   // ================= ADMIN =================
