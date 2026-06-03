@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![LIVE TV Streaming](https://img.shields.io/badge/Status-Live-brightgreen)](https://livetv24.pages.dev/) [![Version](https://img.shields.io/badge/Version-1.0.0-green)](https://livetv24.pages.dev/) [![License](https://img.shields.io/badge/License-MIT-yellow)](https://livetv24.pages.dev/) [![Live Demo](https://img.shields.io/badge/Live%20Demo-https://livetv24.pages.dev/-blue)](https://livetv24.pages.dev/) 
+[![LIVE TV Streaming](https://img.shields.io/badge/Status-Live-brightgreen)](https://livezonetv.pages.dev/) [![Version](https://img.shields.io/badge/Version-1.0.0-green)](https://livezonetv.pages.dev/) [![License](https://img.shields.io/badge/License-MIT-yellow)](https://livezonetv.pages.dev/) [![Live Demo](https://img.shields.io/badge/Live%20Demo-https://livezonetv.pages.dev/-blue)](https://livezonetv.pages.dev/) 
 
 *LiveZone TV is a fast, secure, and scalable Live TV Streaming Platform application built on React (Vite) and deployed through Cloudflare Pages & Workers. It uses Cloudflare D1 as its database layer and includes a complete admin dashboard for link and system management.*
 
@@ -17,7 +17,7 @@
 
 Experience the full functionality of the **Live TV Streaming Platform** with all features available online!
 
-**🚀 Web**: [https://livetv24.pages.dev/](https://livetv24.pages.dev/)
+**🚀 Web**: [https://livezonetv.pages.dev/](https://livezonetv.pages.dev/)
 
 
 ---
