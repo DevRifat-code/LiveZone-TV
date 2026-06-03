@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS playlists (
 );
 
 -- Insert default admin
-INSERT OR IGNORE INTO admin (id, username, password) VALUES (1, 'admin', 'admin');
+INSERT OR IGNORE INTO admin (id, username, password) VALUES (1, 'admin', '123456');
 
 -- Insert default TV playlists
 INSERT INTO playlists (url, type, sort_order) VALUES
