@@ -150,6 +150,62 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   }
                  }
 
+  // ================= CORS PROXY =================
+
+  if (path === "/api/cors-proxy" && request.method === "GET") {
+    const target = url.searchParams.get("url") || "";
+    if (!target) return new Response("Missing url parameter", { status: 400 });
+
+    try {
+      const upstream = await fetch(target, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+          "Referer": new URL(target).origin,
+          "Accept": "*/*",
+        },
+      });
+
+      if (!upstream.ok) {
+        return new Response(`Upstream error: ${upstream.status}`, { status: upstream.status });
+      }
+
+      const contentType = upstream.headers.get("content-type") || "";
+      const baseUrl = target.substring(0, target.lastIndexOf("/") + 1);
+      const proxyBase = `/api/cors-proxy?url=`;
+
+      // Rewrite .m3u8 playlists
+      if (contentType.includes("m3u") || target.includes(".m3u8")) {
+        let text = await upstream.text();
+        text = text.replace(/^([^#\n\s][^\n]*)$/gm, (line) => {
+          const trimmed = line.trim();
+          if (!trimmed) return line;
+          const resolved = trimmed.startsWith("http")
+            ? trimmed
+            : new URL(trimmed, baseUrl).toString();
+          return proxyBase + encodeURIComponent(resolved);
+        });
+        return new Response(text, {
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Content-Type": "application/vnd.apple.mpegurl",
+          },
+        });
+      }
+
+      // Proxy segments / other files
+      const buffer = await upstream.arrayBuffer();
+      return new Response(buffer, {
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Content-Type": contentType,
+          "Cache-Control": "public, max-age=3600",
+        },
+      });
+    } catch (e: any) {
+      return new Response(`Proxy error: ${e.message}`, { status: 502 });
+    }
+  }
+
   // ================= CONTACT =================
 
   if (path === "/api/contact" && request.method === "POST") {
