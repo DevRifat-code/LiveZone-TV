@@ -1,0 +1,14 @@
+{
+  "name": "livetv24",
+  "compatibility_date": "2026-02-17",
+  "assets": {
+    "directory": "./dist"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "livetv-db",
+      "database_id": "a573e337-95c1-498b-9301-7bf3bbee7bbc"
+    }
+  ]
+}
