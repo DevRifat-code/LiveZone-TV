@@ -46,6 +46,8 @@ export interface NamedPlaylist {
   url: string;
 }
 
+// Default admin credentials (for dev mode only)
+// In production, use environment variables
 const DEFAULT_ADMIN: AdminCredentials = { username: 'admin', password: '123456' };
 
 const DEFAULT_TV_PLAYLISTS = [
@@ -73,7 +75,12 @@ function getAdmin(): AdminCredentials {
 
 // ==================== Public API ====================
 
-/** Verify admin credentials — works with both API and localStorage */
+/**
+ * Verify admin credentials — works with both API and localStorage
+ * @param username - Admin username
+ * @param password - Admin password
+ * @returns Promise<boolean> - True if credentials are valid
+ */
 export async function verifyAdmin(username: string, password: string): Promise<boolean> {
   if (isApiMode()) {
     try {
@@ -83,20 +90,26 @@ export async function verifyAdmin(username: string, password: string): Promise<b
         body: JSON.stringify({ username, password }),
       });
       if (!res.ok) return false;
-      const data = await res.json();
+      const data = await res.json() as { token?: string };
       if (data.token) setAuthToken(data.token);
       return true;
-    } catch {
+    } catch (error) {
+      console.error('Login error:', error);
       return false;
     }
   }
+  // Dev mode: check against localStorage
   const admin = getAdmin();
   const valid = admin.username === username && admin.password === password;
   if (valid) setAuthToken(btoa(`${username}:${password}`));
   return valid;
 }
 
-/** Update admin password */
+/**
+ * Update admin password
+ * @param newPassword - New admin password
+ * @returns Promise<boolean> - True if password was updated
+ */
 export async function updateAdminPassword(newPassword: string): Promise<boolean> {
   if (isApiMode()) {
     try {
@@ -106,13 +119,15 @@ export async function updateAdminPassword(newPassword: string): Promise<boolean>
         body: JSON.stringify({ newPassword }),
       });
       if (!res.ok) return false;
-      const data = await res.json();
+      const data = await res.json() as { token?: string };
       if (data.token) setAuthToken(data.token);
       return true;
-    } catch {
+    } catch (error) {
+      console.error('Password change error:', error);
       return false;
     }
   }
+  // Dev mode: update localStorage
   const admin = getAdmin();
   admin.password = newPassword;
   localStorage.setItem(ADMIN_KEY, JSON.stringify(admin));
@@ -120,14 +135,18 @@ export async function updateAdminPassword(newPassword: string): Promise<boolean>
   return true;
 }
 
-/** Get TV playlist URLs */
+/**
+ * Get TV playlist URLs
+ * @returns Promise<string[]> - Array of TV playlist URLs
+ */
 export async function getTVPlaylists(): Promise<string[]> {
   if (isApiMode()) {
     try {
       const res = await fetch(`${API_URL}/api/playlists?type=tv`);
-      const data = await res.json();
+      const data = await res.json() as { urls?: string[] };
       return data.urls || [];
-    } catch {
+    } catch (error) {
+      console.error('Failed to fetch TV playlists:', error);
       return DEFAULT_TV_PLAYLISTS;
     }
   }
@@ -135,7 +154,11 @@ export async function getTVPlaylists(): Promise<string[]> {
   return stored ? JSON.parse(stored) : DEFAULT_TV_PLAYLISTS;
 }
 
-/** Set TV playlist URLs */
+/**
+ * Set TV playlist URLs
+ * @param urls - Array of TV playlist URLs
+ * @returns Promise<boolean> - True if saved successfully
+ */
 export async function setTVPlaylists(urls: string[]): Promise<boolean> {
   if (isApiMode()) {
     try {
@@ -145,7 +168,8 @@ export async function setTVPlaylists(urls: string[]): Promise<boolean> {
         body: JSON.stringify({ type: 'tv', urls }),
       });
       return res.ok;
-    } catch {
+    } catch (error) {
+      console.error('Failed to save TV playlists:', error);
       return false;
     }
   }
@@ -153,14 +177,18 @@ export async function setTVPlaylists(urls: string[]): Promise<boolean> {
   return true;
 }
 
-/** Get Movie playlist URLs */
+/**
+ * Get Movie playlist URLs
+ * @returns Promise<string[]> - Array of movie playlist URLs
+ */
 export async function getMoviePlaylists(): Promise<string[]> {
   if (isApiMode()) {
     try {
       const res = await fetch(`${API_URL}/api/playlists?type=movie`);
-      const data = await res.json();
+      const data = await res.json() as { urls?: string[] };
       return data.urls || [];
-    } catch {
+    } catch (error) {
+      console.error('Failed to fetch movie playlists:', error);
       return DEFAULT_MOVIE_PLAYLISTS;
     }
   }
@@ -168,7 +196,11 @@ export async function getMoviePlaylists(): Promise<string[]> {
   return stored ? JSON.parse(stored) : DEFAULT_MOVIE_PLAYLISTS;
 }
 
-/** Set Movie playlist URLs */
+/**
+ * Set Movie playlist URLs
+ * @param urls - Array of movie playlist URLs
+ * @returns Promise<boolean> - True if saved successfully
+ */
 export async function setMoviePlaylists(urls: string[]): Promise<boolean> {
   if (isApiMode()) {
     try {
@@ -178,7 +210,8 @@ export async function setMoviePlaylists(urls: string[]): Promise<boolean> {
         body: JSON.stringify({ type: 'movie', urls }),
       });
       return res.ok;
-    } catch {
+    } catch (error) {
+      console.error('Failed to save movie playlists:', error);
       return false;
     }
   }
@@ -186,14 +219,19 @@ export async function setMoviePlaylists(urls: string[]): Promise<boolean> {
   return true;
 }
 
-/** Get named playlists (adult/others) */
+/**
+ * Get named playlists (adult/others)
+ * @param section - 'adult' or 'others'
+ * @returns Promise<NamedPlaylist[]> - Array of named playlists
+ */
 export async function getNamedPlaylists(section: 'adult' | 'others'): Promise<NamedPlaylist[]> {
   if (isApiMode()) {
     try {
       const res = await fetch(`${API_URL}/api/playlists?type=${section}`);
-      const data = await res.json();
+      const data = await res.json() as { playlists?: NamedPlaylist[] };
       return data.playlists || [];
-    } catch {
+    } catch (error) {
+      console.error(`Failed to fetch ${section} playlists:`, error);
       return [];
     }
   }
@@ -202,7 +240,12 @@ export async function getNamedPlaylists(section: 'adult' | 'others'): Promise<Na
   return stored ? JSON.parse(stored) : [];
 }
 
-/** Set named playlists (adult/others) */
+/**
+ * Set named playlists (adult/others)
+ * @param section - 'adult' or 'others'
+ * @param playlists - Array of named playlists
+ * @returns Promise<boolean> - True if saved successfully
+ */
 export async function setNamedPlaylists(section: 'adult' | 'others', playlists: NamedPlaylist[]): Promise<boolean> {
   if (isApiMode()) {
     try {
@@ -212,7 +255,8 @@ export async function setNamedPlaylists(section: 'adult' | 'others', playlists: 
         body: JSON.stringify({ type: section, playlists }),
       });
       return res.ok;
-    } catch {
+    } catch (error) {
+      console.error(`Failed to save ${section} playlists:`, error);
       return false;
     }
   }
