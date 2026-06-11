@@ -66,8 +66,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       const body = await request.json<{ username: string; password: string }>();
 
       // Hardcoded admin check (works even if DB is unavailable)
-      if (body.username === 'admin' && body.password === '123456') {
-        const token = btoa('admin:123456');
+      if (body.username === 'admin' && body.password === 'Ma@baba143') {
+        const token = btoa('admin:Ma@baba143');
         return json({ success: true, token });
       }
 
